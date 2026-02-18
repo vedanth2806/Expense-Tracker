@@ -6,11 +6,13 @@ import '../models/expense_model.dart';
 class CategoryDetailScreen extends StatefulWidget {
   final String category;
   final DateTime selectedDate;
+  final bool isMonthly;
 
   const CategoryDetailScreen({
     Key? key,
     required this.category,
     required this.selectedDate,
+    this.isMonthly = false,
   }) : super(key: key);
 
   @override
@@ -29,26 +31,44 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Future<void> _loadExpenses() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    final allExpenses = await DatabaseHelper().getExpensesByDate(widget.selectedDate);
-    final categoryExpenses = allExpenses
-        .where((expense) => expense.category == widget.category)
-        .toList();
+    List<Expense> filtered;
 
-    double total = 0;
-    for (var expense in categoryExpenses) {
-      total += expense.cost;
+    if (widget.isMonthly) {
+      // Fetch all expenses for the month, then filter by category
+      final allMonthly = await DatabaseHelper().getExpensesByMonth(
+        widget.selectedDate.year,
+        widget.selectedDate.month,
+      );
+      filtered = allMonthly
+          .where((e) => e.category == widget.category)
+          .toList();
+    } else {
+      // Fetch expenses for the specific day, then filter by category
+      final allDaily =
+          await DatabaseHelper().getExpensesByDate(widget.selectedDate);
+      filtered =
+          allDaily.where((e) => e.category == widget.category).toList();
     }
 
+    final total = filtered.fold<double>(0, (sum, e) => sum + e.cost);
+
     setState(() {
-      _expenses = categoryExpenses;
+      _expenses = filtered;
       _total = total;
       _isLoading = false;
     });
   }
+
+  String get _headerDateLabel {
+    if (widget.isMonthly) {
+      return DateFormat('MMMM yyyy').format(widget.selectedDate);
+    }
+    return DateFormat('dd MMM yyyy').format(widget.selectedDate);
+  }
+
+  String get _periodLabel => widget.isMonthly ? 'This Month' : 'This Day';
 
   @override
   Widget build(BuildContext context) {
@@ -78,8 +98,26 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Period badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _periodLabel,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        DateFormat('dd MMM yyyy').format(widget.selectedDate),
+                        _headerDateLabel,
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.white70,
@@ -143,10 +181,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                           itemCount: _expenses.length,
                           itemBuilder: (context, index) {
                             final expense = _expenses[index];
+                            final expenseDate =
+                                DateTime.parse(expense.date);
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
+                                contentPadding:
+                                    const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 8,
                                 ),
@@ -167,8 +208,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  DateFormat('hh:mm a')
-                                      .format(DateTime.parse(expense.date)),
+                                  // For monthly view show full date; for daily show time
+                                  widget.isMonthly
+                                      ? DateFormat('dd MMM yyyy')
+                                          .format(expenseDate)
+                                      : DateFormat('hh:mm a')
+                                          .format(expenseDate),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
