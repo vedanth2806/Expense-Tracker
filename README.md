@@ -1,6 +1,6 @@
-# expense_app
+# Expense_Tracker
 
-A new Flutter project.
+A new Flutter project which aims at managing your personal expenses and get an overview of the expenses. It is completely offline application and your data gets erased if you uninstall the application. 
 
 ## Getting Started
 
