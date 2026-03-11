@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../screens/add_expense_screen.dart';
+import '../screens/monthly_analysis_screen.dart';
+import '../screens/yearly_analysis_screen.dart';
+import '../screens/import_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({Key? key}) : super(key: key);
@@ -60,6 +63,71 @@ class AppDrawer extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const AddExpenseScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          Padding(
+            padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+            child: Text(
+              'ANALYSIS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.calendar_month_outlined),
+            title: const Text('Monthly Analysis'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MonthlyAnalysisScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.calendar_today_outlined),
+            title: const Text('Yearly Analysis'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const YearlyAnalysisScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+            child: Text(
+              'DATA',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: const Text('Import Expenses'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ImportScreen(),
                 ),
               );
             },

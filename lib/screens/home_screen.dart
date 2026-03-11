@@ -63,8 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedDate.year,
       _selectedDate.month,
     );
-    final monthlyTotal =
-        await DatabaseHelper().getMonthlyTotal(_selectedDate);
+    final monthlyTotal = await DatabaseHelper().getMonthlyTotal(_selectedDate);
 
     if (!mounted) return;
     setState(() {
@@ -78,8 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadDailyData() async {
     setState(() => _isDailyLoading = true);
 
-    final categoryTotals =
-        await DatabaseHelper().getCategoryTotalsByDate(_selectedDate);
+    final categoryTotals = await DatabaseHelper().getCategoryTotalsByDate(
+      _selectedDate,
+    );
     final dailyTotal = await DatabaseHelper().getDailyTotal(_selectedDate);
 
     if (!mounted) return;
@@ -93,7 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _previousDay() {
     final newDate = _selectedDate.subtract(const Duration(days: 1));
     final monthChanged =
-        newDate.month != _selectedDate.month || newDate.year != _selectedDate.year;
+        newDate.month != _selectedDate.month ||
+        newDate.year != _selectedDate.year;
     setState(() => _selectedDate = newDate);
     _loadDailyData();
     if (monthChanged) _loadMonthlyData();
@@ -107,7 +108,8 @@ class _HomeScreenState extends State<HomeScreen> {
         (nextDate.year == today.year &&
             nextDate.month == today.month &&
             nextDate.day <= today.day)) {
-      final monthChanged = nextDate.month != _selectedDate.month ||
+      final monthChanged =
+          nextDate.month != _selectedDate.month ||
           nextDate.year != _selectedDate.year;
       setState(() => _selectedDate = nextDate);
       _loadDailyData();
@@ -122,86 +124,149 @@ class _HomeScreenState extends State<HomeScreen> {
         _selectedDate.day == today.day;
   }
 
-  // ── Excel Export ──────────────────────────────────────────────────────────
+  // ── Excel Export (all months, one sheet each) ─────────────────────────────
   Future<void> _downloadExcel() async {
     setState(() => _isExporting = true);
     try {
-      final expenses = await DatabaseHelper().getExpensesByMonth(
-        _selectedDate.year,
-        _selectedDate.month,
-      );
+      final allMonths = await DatabaseHelper().getAllExpenseMonths();
+      if (allMonths.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No expense data to export.')),
+          );
+        }
+        return;
+      }
 
       final excel = Excel.createExcel();
-      final sheetName =
-          DateFormat('MMMM_yyyy').format(_selectedDate);
-      final Sheet sheet = excel[sheetName];
-      excel.delete('Sheet1'); // remove default sheet
+      excel.delete('Sheet1');
 
-      // Header row
-      final headers = ['Date', 'Item', 'Category', 'Amount (₹)'];
-      for (var i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(
-          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
+      for (final monthDate in allMonths) {
+        final expenses = await DatabaseHelper().getExpensesByMonth(
+          monthDate.year,
+          monthDate.month,
         );
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(bold: true);
-      }
+        if (expenses.isEmpty) continue;
 
-      // Data rows
-      for (var rowIdx = 0; rowIdx < expenses.length; rowIdx++) {
-        final e = expenses[rowIdx];
-        final rowData = [
-          DateFormat('dd/MM/yyyy').format(DateTime.parse(e.date)),
-          e.item,
-          e.category,
-          e.cost,
-        ];
-        for (var colIdx = 0; colIdx < rowData.length; colIdx++) {
+        final sheetName = DateFormat('MMM_yyyy').format(monthDate);
+        final Sheet sheet = excel[sheetName];
+
+        // ── Header row ───────────────────────────────────────────────────
+        final headers = ['Date', 'Item', 'Category', 'Amount (₹)'];
+        for (var i = 0; i < headers.length; i++) {
           final cell = sheet.cell(
-            CellIndex.indexByColumnRow(
-                columnIndex: colIdx, rowIndex: rowIdx + 1),
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
           );
-          final val = rowData[colIdx];
-          if (val is double) {
-            cell.value = DoubleCellValue(val);
-          } else {
-            cell.value = TextCellValue(val.toString());
+          cell.value = TextCellValue(headers[i]);
+          cell.cellStyle = CellStyle(bold: true);
+        }
+
+        // ── Data rows ─────────────────────────────────────────────────────
+        double monthTotal = 0;
+        final Map<String, double> catTotals = {};
+
+        for (var rowIdx = 0; rowIdx < expenses.length; rowIdx++) {
+          final e = expenses[rowIdx];
+          monthTotal += e.cost;
+          catTotals[e.category] = (catTotals[e.category] ?? 0) + e.cost;
+
+          final rowData = [
+            DateFormat('dd/MM/yyyy').format(DateTime.parse(e.date)),
+            e.item,
+            e.category,
+            e.cost,
+          ];
+          for (var colIdx = 0; colIdx < rowData.length; colIdx++) {
+            final cell = sheet.cell(
+              CellIndex.indexByColumnRow(
+                columnIndex: colIdx,
+                rowIndex: rowIdx + 1,
+              ),
+            );
+            final val = rowData[colIdx];
+            if (val is double) {
+              cell.value = DoubleCellValue(val);
+            } else {
+              cell.value = TextCellValue(val.toString());
+            }
           }
         }
+
+        // ── Blank separator ───────────────────────────────────────────────
+        int nextRow = expenses.length + 2;
+
+        // ── Category summary header ───────────────────────────────────────
+        final catHeaderDate = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: nextRow),
+        );
+        catHeaderDate.value = TextCellValue('Category');
+        catHeaderDate.cellStyle = CellStyle(bold: true);
+
+        final catHeaderAmt = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: nextRow),
+        );
+        catHeaderAmt.value = TextCellValue('Total (₹)');
+        catHeaderAmt.cellStyle = CellStyle(bold: true);
+        nextRow++;
+
+        // ── Per-category rows ─────────────────────────────────────────────
+        for (final entry in catTotals.entries) {
+          sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: nextRow),
+              )
+              .value = TextCellValue(
+            entry.key,
+          );
+          sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: nextRow),
+              )
+              .value = DoubleCellValue(
+            entry.value,
+          );
+          nextRow++;
+        }
+
+        // ── Grand total row ───────────────────────────────────────────────
+        final totalLabelCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: nextRow),
+        );
+        totalLabelCell.value = TextCellValue('TOTAL');
+        totalLabelCell.cellStyle = CellStyle(bold: true);
+
+        final totalAmtCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: nextRow),
+        );
+        totalAmtCell.value = DoubleCellValue(monthTotal);
+        totalAmtCell.cellStyle = CellStyle(bold: true);
       }
 
-      // Total row
-      final totalRow = expenses.length + 1;
-      sheet
-          .cell(CellIndex.indexByColumnRow(
-              columnIndex: 0, rowIndex: totalRow))
-          .value = TextCellValue('TOTAL');
-      final totalCell = sheet.cell(
-        CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: totalRow),
-      );
-      totalCell.value = DoubleCellValue(_monthlyTotal);
-      totalCell.cellStyle = CellStyle(bold: true);
-
-      // Save file
+      // ── Save & share ──────────────────────────────────────────────────
       final bytes = excel.encode();
       if (bytes == null) throw Exception('Failed to encode Excel file');
 
       final dir = await getTemporaryDirectory();
-      final fileName =
-          'expenses_${DateFormat('MMMM_yyyy').format(_selectedDate)}.xlsx';
+      const fileName = 'expenses_all_months.xlsx';
       final file = File('${dir.path}/$fileName');
       await file.writeAsBytes(bytes);
 
-      // Share / save
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
-        subject: 'Expenses - ${DateFormat('MMMM yyyy').format(_selectedDate)}',
+        [
+          XFile(
+            file.path,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ),
+        ],
+        subject:
+            'All Expense Data — ${allMonths.length} month${allMonths.length == 1 ? '' : 's'}',
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -224,44 +289,48 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Monthly Total Card ────────────────────────────────────────
-            _isMonthlyLoading
-                ? const SizedBox(
-                    height: 120,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : _buildMonthlyTotalCard(),
+      body: RefreshIndicator(
+        onRefresh: _loadAllData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Monthly Total Card ────────────────────────────────────────
+              _isMonthlyLoading
+                  ? const SizedBox(
+                      height: 120,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _buildMonthlyTotalCard(),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // ── Monthly Pie Chart ─────────────────────────────────────────
-            _isMonthlyLoading
-                ? const SizedBox(
-                    height: 300,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : _buildMonthlyChartSection(),
+              // ── Monthly Pie Chart ─────────────────────────────────────────
+              _isMonthlyLoading
+                  ? const SizedBox(
+                      height: 300,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _buildMonthlyChartSection(),
 
-            const SizedBox(height: 32),
+              const SizedBox(height: 32),
 
-            // ── Date Navigation Bar ───────────────────────────────────────
-            _buildDateNavigator(),
+              // ── Date Navigation Bar ───────────────────────────────────────
+              _buildDateNavigator(),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // ── Daily Section ─────────────────────────────────────────────
-            _isDailyLoading
-                ? const SizedBox(
-                    height: 200,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : _buildDailySection(),
-          ],
+              // ── Daily Section ─────────────────────────────────────────────
+              _isDailyLoading
+                  ? const SizedBox(
+                      height: 200,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _buildDailySection(),
+            ],
+          ),
         ),
       ),
     );
@@ -340,8 +409,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     tooltip: 'Download Excel',
                     onPressed: _downloadExcel,
                     style: IconButton.styleFrom(
-                      backgroundColor:
-                          Theme.of(context).primaryColor.withOpacity(0.1),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).primaryColor.withOpacity(0.1),
                       foregroundColor: Theme.of(context).primaryColor,
                     ),
                   ),
@@ -378,8 +448,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // Daily Total Card
         Card(
           elevation: 4,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -495,7 +566,11 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[400]),
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 80,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 16),
             Text(
               message,
@@ -524,8 +599,9 @@ class _HomeScreenState extends State<HomeScreen> {
     int colorIndex = 0;
 
     categoryTotals.forEach((category, amount) {
-      final percentage =
-          (totalExpenses > 0) ? (amount / totalExpenses * 100) : 0;
+      final percentage = (totalExpenses > 0)
+          ? (amount / totalExpenses * 100)
+          : 0;
 
       sections.add(
         PieChartSectionData(
@@ -570,8 +646,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
             child: Row(
               children: [
                 Container(
@@ -600,8 +675,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.arrow_forward_ios,
-                    size: 16, color: Colors.grey[600]),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
               ],
             ),
           ),

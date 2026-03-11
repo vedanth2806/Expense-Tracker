@@ -148,13 +148,71 @@ class DatabaseHelper {
     return categoryTotals;
   }
 
+  // Get all distinct year-month pairs that have at least one expense
+  Future<List<DateTime>> getAllExpenseMonths() async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      'SELECT DISTINCT substr(date,1,7) AS ym FROM expenses ORDER BY ym ASC',
+    );
+    return result.map((row) {
+      final parts = (row['ym'] as String).split('-');
+      return DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    }).toList();
+  }
+
+  // Bulk-insert expenses, skipping exact duplicates
+  Future<int> insertExpenseBatch(List<Expense> expenses) async {
+    final db = await database;
+    int inserted = 0;
+    for (final expense in expenses) {
+      // Check for an existing row with identical fields
+      final existing = await db.query(
+        'expenses',
+        where: 'item = ? AND category = ? AND cost = ? AND date = ?',
+        whereArgs: [expense.item, expense.category, expense.cost, expense.date],
+      );
+      if (existing.isEmpty) {
+        await db.insert('expenses', expense.toMap());
+        inserted++;
+      }
+    }
+    return inserted;
+  }
+
+  // Get daily totals for each day of a specific month
+  Future<Map<int, double>> getDailyTotalsForMonth(int year, int month) async {
+    final allExpenses = await getExpenses();
+    final Map<int, double> dailyTotals = {};
+    for (var expense in allExpenses) {
+      final expenseDate = DateTime.parse(expense.date);
+      if (expenseDate.year == year && expenseDate.month == month) {
+        dailyTotals[expenseDate.day] =
+            (dailyTotals[expenseDate.day] ?? 0) + expense.cost;
+      }
+    }
+    return dailyTotals;
+  }
+
+  // Get monthly totals for each month of a specific year
+  Future<Map<int, double>> getMonthlyTotalsForYear(int year) async {
+    final allExpenses = await getExpenses();
+    final Map<int, double> monthlyTotals = {};
+    for (var expense in allExpenses) {
+      final expenseDate = DateTime.parse(expense.date);
+      if (expenseDate.year == year) {
+        monthlyTotals[expenseDate.month] =
+            (monthlyTotals[expenseDate.month] ?? 0) + expense.cost;
+      }
+    }
+    return monthlyTotals;
+  }
+
   // Get all expenses for a specific month (for Excel export)
   Future<List<Expense>> getExpensesByMonth(int year, int month) async {
     final allExpenses = await getExpenses();
     return allExpenses.where((expense) {
       final expenseDate = DateTime.parse(expense.date);
       return expenseDate.year == year && expenseDate.month == month;
-    }).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    }).toList()..sort((a, b) => a.date.compareTo(b.date));
   }
 }
