@@ -13,38 +13,29 @@ class YearlyAnalysisScreen extends StatefulWidget {
 
 class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
   int _selectedYear = DateTime.now().year;
-  Map<int, double> _monthlyTotals = {}; // month (1-12) -> total cost
+  Map<int, double> _monthlyTotals = {};
   bool _isLoading = true;
   double _yearlyTotal = 0;
 
-  final List<Color> _barColors = [
-    const Color(0xFF6366F1),
-    const Color(0xFF8B5CF6),
-    const Color(0xFFEC4899),
-    const Color(0xFF10B981),
-    const Color(0xFFF59E0B),
-    const Color(0xFFEF4444),
-    const Color(0xFF14B8A6),
-    const Color(0xFFF97316),
-    const Color(0xFF3B82F6),
-    const Color(0xFF06B6D4),
-    const Color(0xFF84CC16),
-    const Color(0xFFD946EF),
+  // A curated monthly palette (not category-based)
+  final List<Color> _barColors = const [
+    Color(0xFF30437A),
+    Color(0xFF4A6FA5),
+    Color(0xFF6389C0),
+    Color(0xFF30437A),
+    Color(0xFF4A6FA5),
+    Color(0xFF6389C0),
+    Color(0xFF30437A),
+    Color(0xFF4A6FA5),
+    Color(0xFF6389C0),
+    Color(0xFF30437A),
+    Color(0xFF4A6FA5),
+    Color(0xFF6389C0),
   ];
 
   final List<String> _monthShortNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
 
   @override
@@ -55,9 +46,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final totals = await DatabaseHelper().getMonthlyTotalsForYear(
-      _selectedYear,
-    );
+    final totals = await DatabaseHelper().getMonthlyTotalsForYear(_selectedYear);
     final yearTotal = totals.values.fold(0.0, (a, b) => a + b);
     if (!mounted) return;
     setState(() {
@@ -92,7 +81,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Yearly Analysis'), elevation: 0),
+      appBar: AppBar(title: const Text('Yearly Analysis')),
       drawer: const AppDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -101,24 +90,14 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Year Navigator ─────────────────────────────────────
                   _buildYearNavigator(theme),
-
                   const SizedBox(height: 20),
-
-                  // ── Summary Card ───────────────────────────────────────
                   _buildSummaryCard(theme),
-
                   const SizedBox(height: 24),
-
-                  // ── Bar Chart ──────────────────────────────────────────
                   _monthlyTotals.isEmpty
                       ? _buildEmptyState()
                       : _buildBarChartCard(theme),
-
                   const SizedBox(height: 20),
-
-                  // ── Monthly breakdown list ─────────────────────────────
                   if (_monthlyTotals.isNotEmpty) _buildMonthlyList(theme),
                 ],
               ),
@@ -128,17 +107,17 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
 
   Widget _buildYearNavigator(ThemeData theme) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: _previousYear,
               tooltip: 'Previous Year',
+              color: const Color(0xFF30437A),
             ),
             Expanded(
               child: Center(
@@ -147,14 +126,15 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    color: Color(0xFF30437A),
                   ),
                 ),
               ),
             ),
             IconButton(
               icon: Icon(
-                Icons.arrow_forward_ios,
-                color: _isCurrentYear() ? Colors.grey[400] : null,
+                Icons.arrow_forward_ios_rounded,
+                color: _isCurrentYear() ? Colors.grey[400] : const Color(0xFF30437A),
               ),
               onPressed: _isCurrentYear() ? null : _nextYear,
               tooltip: 'Next Year',
@@ -168,17 +148,14 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
   Widget _buildSummaryCard(ThemeData theme) {
     final activeMonths = _monthlyTotals.length;
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              theme.primaryColor.withOpacity(0.85),
-              theme.primaryColor.withOpacity(0.55),
-            ],
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -202,7 +179,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
             Text(
               '₹${_yearlyTotal.toStringAsFixed(2)}',
               style: const TextStyle(
-                fontSize: 32,
+                fontSize: 36,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -229,12 +206,9 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.bar_chart, color: theme.primaryColor),
+                Icon(Icons.bar_chart, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                const Text(
-                  'Monthly Breakdown',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                Text('Monthly Breakdown', style: theme.textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 24),
@@ -248,9 +222,8 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                     enabled: true,
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: (_) =>
-                          theme.primaryColor.withOpacity(0.85),
+                          const Color(0xFF30437A).withOpacity(0.85),
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final month = group.x + 1;
                         return BarTooltipItem(
                           '${_monthShortNames[group.x]}\n₹${rod.toY.toStringAsFixed(0)}',
                           const TextStyle(
@@ -281,7 +254,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
-                                color: theme.primaryColor,
+                                color: theme.colorScheme.primary,
                               ),
                             ),
                           );
@@ -352,9 +325,9 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                         BarChartRodData(
                           toY: total,
                           color: total > 0
-                              ? _barColors[index % _barColors.length]
+                              ? _barColors[index]
                               : Colors.grey.withOpacity(0.1),
-                          width: 18,
+                          width: 22,
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(5),
                           ),
@@ -365,11 +338,11 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Center(
               child: Text(
                 'Month of Year →',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
               ),
             ),
           ],
@@ -387,10 +360,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Month-by-Month',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            Text('Month-by-Month', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             ...List.generate(12, (i) {
               final month = i + 1;
@@ -405,7 +375,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                       height: 10,
                       decoration: BoxDecoration(
                         color: total > 0
-                            ? _barColors[i % _barColors.length]
+                            ? _barColors[i]
                             : Colors.grey[300],
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -430,7 +400,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                           backgroundColor: Colors.grey.withOpacity(0.12),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             total > 0
-                                ? _barColors[i % _barColors.length]
+                                ? _barColors[i]
                                 : Colors.transparent,
                           ),
                         ),

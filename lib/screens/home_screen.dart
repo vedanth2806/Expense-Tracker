@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../database_helper.dart';
 import '../widgets/sidebar.dart';
+import '../utils/category_colors.dart';
 import 'category_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -31,18 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime _selectedDate = DateTime.now();
 
   bool _isExporting = false;
-
-  // Vibrant colors for pie chart
-  final List<Color> _chartColors = [
-    const Color(0xFF6366F1),
-    const Color(0xFFEC4899),
-    const Color(0xFF10B981),
-    const Color(0xFFF59E0B),
-    const Color(0xFF8B5CF6),
-    const Color(0xFFEF4444),
-    const Color(0xFF14B8A6),
-    const Color(0xFFF97316),
-  ];
 
   @override
   void initState() {
@@ -215,16 +204,12 @@ class _HomeScreenState extends State<HomeScreen> {
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: nextRow),
               )
-              .value = TextCellValue(
-            entry.key,
-          );
+              .value = TextCellValue(entry.key);
           sheet
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: nextRow),
               )
-              .value = DoubleCellValue(
-            entry.value,
-          );
+              .value = DoubleCellValue(entry.value);
           nextRow++;
         }
 
@@ -276,10 +261,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expense Tracker'),
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -303,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 120,
                       child: Center(child: CircularProgressIndicator()),
                     )
-                  : _buildMonthlyTotalCard(),
+                  : _buildMonthlyTotalCard(theme),
 
               const SizedBox(height: 24),
 
@@ -313,12 +298,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 300,
                       child: Center(child: CircularProgressIndicator()),
                     )
-                  : _buildMonthlyChartSection(),
+                  : _buildMonthlyChartSection(theme),
 
               const SizedBox(height: 32),
 
               // ── Date Navigation Bar ───────────────────────────────────────
-              _buildDateNavigator(),
+              _buildDateNavigator(theme),
 
               const SizedBox(height: 24),
 
@@ -328,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 200,
                       child: Center(child: CircularProgressIndicator()),
                     )
-                  : _buildDailySection(),
+                  : _buildDailySection(theme),
             ],
           ),
         ),
@@ -336,19 +321,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMonthlyTotalCard() {
+  Widget _buildMonthlyTotalCard(ThemeData theme) {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.8),
-              Theme.of(context).primaryColor.withOpacity(0.6),
-            ],
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -358,21 +340,21 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               DateFormat('MMMM yyyy').format(_selectedDate),
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 color: Colors.white70,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
               'Monthly Total',
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              style: TextStyle(fontSize: 13, color: Colors.white60),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               '₹${_monthlyTotal.toStringAsFixed(2)}',
               style: const TextStyle(
-                fontSize: 32,
+                fontSize: 36,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -383,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMonthlyChartSection() {
+  Widget _buildMonthlyChartSection(ThemeData theme) {
     if (_categoryTotalsMonth.isEmpty) {
       return _buildEmptyState('No expenses for this month');
     }
@@ -394,9 +376,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Expenses of Month',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge,
             ),
             _isExporting
                 ? const SizedBox(
@@ -409,15 +391,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     tooltip: 'Download Excel',
                     onPressed: _downloadExcel,
                     style: IconButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).primaryColor.withOpacity(0.1),
-                      foregroundColor: Theme.of(context).primaryColor,
+                      backgroundColor: const Color(0xFF30437A).withOpacity(0.1),
+                      foregroundColor: const Color(0xFF30437A),
                     ),
                   ),
           ],
         ),
         const SizedBox(height: 16),
+        // Monthly Pie Chart
         SizedBox(
           height: 300,
           child: PieChart(
@@ -441,7 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDailySection() {
+  Widget _buildDailySection(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -449,17 +430,14 @@ class _HomeScreenState extends State<HomeScreen> {
         Card(
           elevation: 4,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).primaryColor,
-                  Theme.of(context).primaryColor.withOpacity(0.7),
-                ],
+              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -469,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text(
                   'Daily Total',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     color: Colors.white70,
                     fontWeight: FontWeight.w500,
                   ),
@@ -478,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   '₹${_totalExpenses.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    fontSize: 36,
+                    fontSize: 40,
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
@@ -493,9 +471,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_categoryTotals.isEmpty)
           _buildEmptyState('No expenses for this day')
         else ...[
-          const Text(
+          Text(
             'Expenses by Category',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -522,36 +500,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDateNavigator() {
+  Widget _buildDateNavigator(ThemeData theme) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: _previousDay,
               tooltip: 'Previous Day',
+              color: const Color(0xFF30437A),
             ),
             Expanded(
               child: Center(
                 child: Text(
                   DateFormat('dd MMM yyyy').format(_selectedDate),
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
+                    color: Color(0xFF30437A),
                   ),
                 ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.arrow_forward_ios),
+              icon: const Icon(Icons.arrow_forward_ios_rounded),
               onPressed: _isToday() ? null : _nextDay,
               tooltip: 'Next Day',
-              color: _isToday() ? Colors.grey[400] : null,
+              color: _isToday() ? Colors.grey[400] : const Color(0xFF30437A),
             ),
           ],
         ),
@@ -569,21 +549,21 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(
               Icons.receipt_long_outlined,
               size: 80,
-              color: Colors.grey[400],
+              color: Colors.grey[300],
             ),
             const SizedBox(height: 16),
             Text(
               message,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
+                color: Colors.grey[500],
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Add an expense to see the breakdown',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 13, color: Colors.grey[400]),
             ),
           ],
         ),
@@ -595,107 +575,89 @@ class _HomeScreenState extends State<HomeScreen> {
     double totalExpenses,
     Map<String, double> categoryTotals,
   ) {
-    List<PieChartSectionData> sections = [];
-    int colorIndex = 0;
-
-    categoryTotals.forEach((category, amount) {
-      final percentage = (totalExpenses > 0)
-          ? (amount / totalExpenses * 100)
-          : 0;
-
-      sections.add(
-        PieChartSectionData(
-          color: _chartColors[colorIndex % _chartColors.length],
-          value: amount,
-          title: '${percentage.toStringAsFixed(1)}%',
-          radius: 100,
-          titleStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+    return categoryTotals.entries.map((entry) {
+      final percentage =
+          totalExpenses > 0 ? (entry.value / totalExpenses * 100) : 0.0;
+      return PieChartSectionData(
+        color: CategoryColors.getColor(entry.key),
+        value: entry.value,
+        title: '${percentage.toStringAsFixed(1)}%',
+        radius: 100,
+        titleStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
       );
-      colorIndex++;
-    });
-
-    return sections;
+    }).toList();
   }
 
   Widget _buildLegend(
     Map<String, double> categoryTotals, {
     required bool isMonthly,
   }) {
-    List<Widget> legendItems = [];
-    int colorIndex = 0;
-
-    categoryTotals.forEach((category, amount) {
-      legendItems.add(
-        InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CategoryDetailScreen(
-                  category: category,
-                  selectedDate: _selectedDate,
-                  isMonthly: isMonthly,
+    final items = categoryTotals.entries.map((entry) {
+      final color = CategoryColors.getColor(entry.key);
+      return InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CategoryDetailScreen(
+                category: entry.key,
+                selectedDate: _selectedDate,
+                isMonthly: isMonthly,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+          child: Row(
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-            );
-          },
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: _chartColors[colorIndex % _chartColors.length],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    category,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Text(
-                  '₹${amount.toStringAsFixed(2)}',
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  entry.key,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey[600],
+              ),
+              Text(
+                '₹${entry.value.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF30437A),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
+            ],
           ),
         ),
       );
-      colorIndex++;
-    });
+    }).toList();
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: legendItems,
+          children: items,
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../database_helper.dart';
 import '../widgets/sidebar.dart';
+import '../utils/category_colors.dart';
 
 class MonthlyAnalysisScreen extends StatefulWidget {
   const MonthlyAnalysisScreen({Key? key}) : super(key: key);
@@ -13,20 +14,10 @@ class MonthlyAnalysisScreen extends StatefulWidget {
 
 class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
-  Map<int, double> _dailyTotals = {}; // day -> total cost
+  Map<int, double> _dailyTotals = {};
+  Map<String, double> _categoryTotals = {};
   bool _isLoading = true;
   double _monthlyTotal = 0;
-
-  final List<Color> _barColors = [
-    const Color(0xFF6366F1),
-    const Color(0xFF8B5CF6),
-    const Color(0xFF10B981),
-    const Color(0xFFF59E0B),
-    const Color(0xFFEC4899),
-    const Color(0xFFEF4444),
-    const Color(0xFF14B8A6),
-    const Color(0xFFF97316),
-  ];
 
   @override
   void initState() {
@@ -40,10 +31,15 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
       _selectedMonth.year,
       _selectedMonth.month,
     );
+    final categoryTotals = await DatabaseHelper().getCategoryTotalsByMonth(
+      _selectedMonth.year,
+      _selectedMonth.month,
+    );
     final monthTotal = totals.values.fold(0.0, (a, b) => a + b);
     if (!mounted) return;
     setState(() {
       _dailyTotals = totals;
+      _categoryTotals = categoryTotals;
       _monthlyTotal = monthTotal;
       _isLoading = false;
     });
@@ -91,7 +87,6 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monthly Analysis'),
-        elevation: 0,
       ),
       drawer: const AppDrawer(),
       body: _isLoading
@@ -111,6 +106,12 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
 
                   const SizedBox(height: 24),
 
+                  // ── Category Pie Chart ─────────────────────────────────
+                  if (_categoryTotals.isNotEmpty) ...[
+                    _buildCategoryPieChart(theme),
+                    const SizedBox(height: 24),
+                  ],
+
                   // ── Bar Chart ──────────────────────────────────────────
                   _dailyTotals.isEmpty
                       ? _buildEmptyState()
@@ -123,17 +124,17 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
 
   Widget _buildMonthNavigator(ThemeData theme) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: _previousMonth,
               tooltip: 'Previous Month',
+              color: const Color(0xFF30437A),
             ),
             Expanded(
               child: Center(
@@ -142,14 +143,17 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    color: Color(0xFF30437A),
                   ),
                 ),
               ),
             ),
             IconButton(
               icon: Icon(
-                Icons.arrow_forward_ios,
-                color: _isCurrentMonth() ? Colors.grey[400] : null,
+                Icons.arrow_forward_ios_rounded,
+                color: _isCurrentMonth()
+                    ? Colors.grey[400]
+                    : const Color(0xFF30437A),
               ),
               onPressed: _isCurrentMonth() ? null : _nextMonth,
               tooltip: 'Next Month',
@@ -162,17 +166,14 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
 
   Widget _buildSummaryCard(ThemeData theme) {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              theme.primaryColor.withOpacity(0.85),
-              theme.primaryColor.withOpacity(0.55),
-            ],
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -196,7 +197,7 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
             Text(
               '₹${_monthlyTotal.toStringAsFixed(2)}',
               style: const TextStyle(
-                fontSize: 32,
+                fontSize: 36,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -212,7 +213,8 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
     );
   }
 
-  Widget _buildBarChartCard(ThemeData theme) {
+  /// Pie chart by category for the current month
+  Widget _buildCategoryPieChart(ThemeData theme) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -223,149 +225,243 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.bar_chart, color: theme.primaryColor),
+                Icon(Icons.pie_chart_rounded, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                const Text(
-                  'Daily Expenses',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  'Category Breakdown',
+                  style: theme.textTheme.titleMedium,
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             SizedBox(
               height: 280,
-              child: BarChart(
-                BarChartData(
-                  maxY: _maxValue,
-                  minY: 0,
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) =>
-                          theme.primaryColor.withOpacity(0.85),
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final day = group.x + 1;
-                        return BarTooltipItem(
-                          'Day $day\n₹${rod.toY.toStringAsFixed(0)}',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 28,
-                        getTitlesWidget: (value, meta) {
-                          final day = value.toInt() + 1;
-                          final total = _dailyTotals[day] ?? 0;
-                          if (total == 0) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              total >= 1000
-                                  ? '${(total / 1000).toStringAsFixed(1)}k'
-                                  : total.toStringAsFixed(0),
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: theme.primaryColor,
-                              ),
-                            ),
-                          );
-                        },
+              child: PieChart(
+                PieChartData(
+                  sections: _categoryTotals.entries.map((entry) {
+                    final pct = _monthlyTotal > 0
+                        ? (entry.value / _monthlyTotal * 100)
+                        : 0.0;
+                    return PieChartSectionData(
+                      color: CategoryColors.getColor(entry.key),
+                      value: entry.value,
+                      title: '${pct.toStringAsFixed(1)}%',
+                      radius: 100,
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 28,
-                        interval: 1,
-                        getTitlesWidget: (value, meta) {
-                          final day = value.toInt() + 1;
-                          // Show every 5th day label to avoid crowding
-                          if (day % 5 != 0 && day != 1) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              day.toString(),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 48,
-                        getTitlesWidget: (value, meta) {
-                          if (value == 0) return const SizedBox.shrink();
-                          final label = value >= 1000
-                              ? '₹${(value / 1000).toStringAsFixed(0)}k'
-                              : '₹${value.toStringAsFixed(0)}';
-                          return Text(
-                            label,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    getDrawingHorizontalLine: (value) => FlLine(
-                      color: Colors.grey.withOpacity(0.15),
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  barGroups: List.generate(_daysInMonth, (index) {
-                    final day = index + 1;
-                    final total = _dailyTotals[day] ?? 0;
-                    final colorIndex = index % _barColors.length;
-                    return BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: total,
-                          color: total > 0
-                              ? _barColors[colorIndex]
-                              : Colors.grey.withOpacity(0.1),
-                          width: _daysInMonth > 25 ? 6 : 10,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(4),
-                          ),
-                        ),
-                      ],
                     );
-                  }),
+                  }).toList(),
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 55,
+                  borderData: FlBorderData(show: false),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            // Legend
+            ..._categoryTotals.entries.map((entry) {
+              final color = CategoryColors.getColor(entry.key);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '₹${entry.value.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF30437A),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarChartCard(ThemeData theme) {
+    // Each bar slot is 28px wide for a scrollable view
+    const double barSlotWidth = 28.0;
+    final double chartInnerWidth = _daysInMonth * barSlotWidth;
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bar_chart, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Daily Expenses',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Scrollable bar chart
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: chartInnerWidth,
+                height: 300,
+                child: BarChart(
+                  BarChartData(
+                    maxY: _maxValue,
+                    minY: 0,
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) =>
+                            const Color(0xFF30437A).withOpacity(0.85),
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final day = group.x + 1;
+                          return BarTooltipItem(
+                            'Day $day\n₹${rod.toY.toStringAsFixed(0)}',
+                            const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          getTitlesWidget: (value, meta) {
+                            final day = value.toInt() + 1;
+                            final total = _dailyTotals[day] ?? 0;
+                            if (total == 0) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                total >= 1000
+                                    ? '${(total / 1000).toStringAsFixed(1)}k'
+                                    : total.toStringAsFixed(0),
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            final day = value.toInt() + 1;
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                day.toString(),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 52,
+                          getTitlesWidget: (value, meta) {
+                            if (value == 0) return const SizedBox.shrink();
+                            final label = value >= 1000
+                                ? '₹${(value / 1000).toStringAsFixed(0)}k'
+                                : '₹${value.toStringAsFixed(0)}';
+                            return Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: Colors.grey.withOpacity(0.15),
+                        strokeWidth: 1,
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: List.generate(_daysInMonth, (index) {
+                      final day = index + 1;
+                      final total = _dailyTotals[day] ?? 0;
+                      return BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          BarChartRodData(
+                            toY: total,
+                            color: total > 0
+                                ? const Color(0xFF30437A)
+                                : Colors.grey.withOpacity(0.1),
+                            width: 18,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(5),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             Center(
               child: Text(
-                'Day of Month →',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                '← Scroll to see all days →',
+                style: TextStyle(fontSize: 11, color: Colors.grey[400]),
               ),
             ),
           ],

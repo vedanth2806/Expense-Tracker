@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../database_helper.dart';
 import '../models/expense_model.dart';
+import '../utils/category_colors.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({Key? key}) : super(key: key);
@@ -14,10 +15,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _itemController = TextEditingController();
   final _costController = TextEditingController();
-  
+
   String _selectedCategory = 'Food';
   DateTime _selectedDate = DateTime.now();
-  
+
   final List<String> _categories = [
     'Food',
     'Basic amenities',
@@ -69,7 +70,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Clear form
         _itemController.clear();
         _costController.clear();
@@ -83,10 +84,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Expense'),
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -95,6 +97,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Section title ──────────────────────────────────────────
+              Text(
+                'New Expense',
+                style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Fill in the details below',
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              ),
+              const SizedBox(height: 28),
+
               // Item Name Field
               TextFormField(
                 controller: _itemController,
@@ -116,12 +130,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Category Dropdown
+              // Category Dropdown with colored indicators
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Category',
-                  prefixIcon: const Icon(Icons.category_outlined),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: CategoryColors.getColor(_selectedCategory),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                    ),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -130,7 +154,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 items: _categories.map((String category) {
                   return DropdownMenuItem<String>(
                     value: category,
-                    child: Text(category),
+                    child: Row(
+                      children: [
+                        // Container(
+                        //   width: 14,
+                        //   height: 14,
+                        //   decoration: BoxDecoration(
+                        //     color: CategoryColors.getColor(category),
+                        //     borderRadius: BorderRadius.circular(4),
+                        //   ),
+                        // ),
+                        const SizedBox(width: 10),
+                        Text(category),
+                      ],
+                    ),
                   );
                 }).toList(),
                 onChanged: (String? newValue) {
@@ -146,7 +183,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               // Cost Field
               TextFormField(
                 controller: _costController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: 'Cost',
                   hintText: '0.00',
@@ -189,20 +227,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 36),
 
               // Save Button
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: _saveExpense,
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Save Expense'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                child: const Text(
-                  'Save Expense',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
