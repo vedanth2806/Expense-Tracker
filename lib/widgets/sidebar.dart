@@ -73,7 +73,7 @@ class AppDrawer extends StatelessWidget {
           const SizedBox(height: 8),
 
           // ── Main Nav ──────────────────────────────────────────────────
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.home_rounded,
             label: 'Home',
             onTap: () {
@@ -81,7 +81,7 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
             },
           ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.add_circle_rounded,
             label: 'Add Expense',
             onTap: () {
@@ -97,7 +97,7 @@ class AppDrawer extends StatelessWidget {
 
           _SectionLabel('ANALYSIS'),
 
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.calendar_month_rounded,
             label: 'Monthly Analysis',
             onTap: () {
@@ -110,7 +110,7 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.bar_chart_rounded,
             label: 'Yearly Analysis',
             onTap: () {
@@ -126,7 +126,7 @@ class AppDrawer extends StatelessWidget {
 
           _SectionLabel('DATA'),
 
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.upload_file_rounded,
             label: 'Import Expenses',
             onTap: () {
@@ -140,7 +140,7 @@ class AppDrawer extends StatelessWidget {
 
           const Divider(height: 24),
 
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.info_rounded,
             label: 'About',
             onTap: () {
@@ -168,12 +168,12 @@ class AppDrawer extends StatelessWidget {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-class _DrawerTile extends StatelessWidget {
+class DrawerTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _DrawerTile({
+  const DrawerTile({
     required this.icon,
     required this.label,
     required this.onTap,

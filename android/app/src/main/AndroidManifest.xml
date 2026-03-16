@@ -1,4 +1,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+        <!-- ✅ Camera permission -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+
+
+
+    <!-- ✅ UPI intent queries (Android 11+) -->
+    <queries>
+
+        <!--
+        
+        <package android:name="com.google.android.apps.nbu.paisa.user" />  
+        <package android:name="com.phonepe.app" />                          
+        <package android:name="net.one97.paytm" />                         
+        <package android:name="com.amazon.mShop.android.shopping" />       
+        <package android:name="in.org.npci.upiapp" />                      
+        <package android:name="com.axis.mobile" />                         
+        <package android:name="com.freecharge.android" />                  
+        <package android:name="com.mobikwik_new" />                        
+    
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+        -->
+
+        <!-- Inside <queries> block -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" android:host="pay" />
+        </intent>
+
+    </queries>
+
+
     <application
         android:label="expense_app"
         android:name="${applicationName}"

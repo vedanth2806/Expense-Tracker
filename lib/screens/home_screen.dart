@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:expense_app/widgets/upi_scanner_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../database_helper.dart';
 import '../widgets/sidebar.dart';
 import '../utils/category_colors.dart';
 import 'category_detail_screen.dart';
+import '../widgets/sidebar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -204,12 +206,16 @@ class _HomeScreenState extends State<HomeScreen> {
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: nextRow),
               )
-              .value = TextCellValue(entry.key);
+              .value = TextCellValue(
+            entry.key,
+          );
           sheet
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: nextRow),
               )
-              .value = DoubleCellValue(entry.value);
+              .value = DoubleCellValue(
+            entry.value,
+          );
           nextRow++;
         }
 
@@ -322,46 +328,99 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMonthlyTotalCard(ThemeData theme) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Row(
+      children: [
+        // ✅ Use IconButton instead of DrawerTile
+        // Material(
+        //   color: Color(0xFF30437A),
+        //   child: InkWell(
+        //     borderRadius: BorderRadius.circular(16),
+        //     onTap: () {
+        //       // ✅ Navigate WITHOUT popping drawer context
+        //       Navigator.push(
+        //         context,
+        //         MaterialPageRoute(
+        //           builder: (context) => const UpiScannerScreen(),
+        //         ),
+        //       );
+        //     },
+        //     child: Container(
+        //       padding: const EdgeInsets.all(16),
+        //       decoration: BoxDecoration(
+        //         color: Colors.white.withOpacity(0.1),
+        //         borderRadius: BorderRadius.circular(16),
+        //       ),
+        //       child: Column(
+        //         mainAxisSize: MainAxisSize.min,
+        //         children: [
+        //           Icon(
+        //             Icons.qr_code_scanner_rounded,
+        //             color: Colors.white,
+        //             size: 28,
+        //           ),
+        //           const SizedBox(height: 4),
+        //           const Text(
+        //             'Scan QR',
+        //             style: TextStyle(
+        //               fontSize: 12,
+        //               color: Colors.white70,
+        //               fontWeight: FontWeight.w500,
+        //             ),
+        //           ),
+        //         ],
+        //       ),
+        //     ),
+        //   ),
+        // ),
+
+        // const SizedBox(width: 16), // ✅ Spacing
+        // Your existing card
+        Expanded(
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    DateFormat('MMMM yyyy').format(_selectedDate),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Monthly Total',
+                    style: TextStyle(fontSize: 13, color: Colors.white60),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '₹${_monthlyTotal.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        child: Column(
-          children: [
-            Text(
-              DateFormat('MMMM yyyy').format(_selectedDate),
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white70,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Monthly Total',
-              style: TextStyle(fontSize: 13, color: Colors.white60),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '₹${_monthlyTotal.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 36,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -376,10 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Expenses of Month',
-              style: theme.textTheme.titleLarge,
-            ),
+            Text('Expenses of Month', style: theme.textTheme.titleLarge),
             _isExporting
                 ? const SizedBox(
                     width: 24,
@@ -471,10 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_categoryTotals.isEmpty)
           _buildEmptyState('No expenses for this day')
         else ...[
-          Text(
-            'Expenses by Category',
-            style: theme.textTheme.titleLarge,
-          ),
+          Text('Expenses by Category', style: theme.textTheme.titleLarge),
           const SizedBox(height: 16),
           SizedBox(
             height: 300,
@@ -576,8 +629,9 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, double> categoryTotals,
   ) {
     return categoryTotals.entries.map((entry) {
-      final percentage =
-          totalExpenses > 0 ? (entry.value / totalExpenses * 100) : 0.0;
+      final percentage = totalExpenses > 0
+          ? (entry.value / totalExpenses * 100)
+          : 0.0;
       return PieChartSectionData(
         color: CategoryColors.getColor(entry.key),
         value: entry.value,
