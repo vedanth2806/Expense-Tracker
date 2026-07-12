@@ -4,7 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpiScannerScreen extends StatefulWidget {
-  const UpiScannerScreen({Key? key}) : super(key: key);
+  const UpiScannerScreen({super.key});
 
   @override
   State<UpiScannerScreen> createState() => _UpiScannerScreenState();
@@ -66,9 +66,10 @@ class _UpiScannerScreenState extends State<UpiScannerScreen>
         upiUri = Uri.parse(qrData);
       } else {
         // Parse individual fields from raw QR data
-        final upiMatch = RegExp(r'pa=([^&]+)').firstMatch(qrData);
-        final nameMatch = RegExp(r'pn=([^&]+)').firstMatch(qrData);
-        final amountMatch = RegExp(r'am=([\d.]+)').firstMatch(qrData);
+        final upiMatch = RegExp(r'pa=([^\&]+)').firstMatch(qrData);
+        final nameMatch = RegExp(r'pn=([^\&]+)').firstMatch(qrData);
+        // ignore: unused_local_variable
+        final _amountMatch = RegExp(r'am=([\d.]+)').firstMatch(qrData);
 
         final String? upiVpa = upiMatch?.group(1);
         if (upiVpa == null) {

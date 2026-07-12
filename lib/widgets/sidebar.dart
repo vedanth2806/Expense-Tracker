@@ -1,3 +1,4 @@
+import 'package:expense_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import '../screens/add_expense_screen.dart';
 import '../screens/monthly_analysis_screen.dart';
@@ -5,11 +6,10 @@ import '../screens/yearly_analysis_screen.dart';
 import '../screens/import_screen.dart';
 
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({Key? key}) : super(key: key);
+  const AppDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -78,7 +78,11 @@ class AppDrawer extends StatelessWidget {
             label: 'Home',
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              // Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              );
             },
           ),
           DrawerTile(
@@ -174,6 +178,7 @@ class DrawerTile extends StatelessWidget {
   final VoidCallback onTap;
 
   const DrawerTile({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,

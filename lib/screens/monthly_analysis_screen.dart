@@ -3,16 +3,22 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../database_helper.dart';
 import '../widgets/sidebar.dart';
+import '../widgets/date_period_picker.dart';
 import '../utils/category_colors.dart';
+import '../utils/currency_formatter.dart';
+import 'category_detail_screen.dart';
+import 'day_expense_screen.dart';
 
 class MonthlyAnalysisScreen extends StatefulWidget {
-  const MonthlyAnalysisScreen({Key? key}) : super(key: key);
+  const MonthlyAnalysisScreen({super.key});
 
   @override
   State<MonthlyAnalysisScreen> createState() => _MonthlyAnalysisScreenState();
 }
 
 class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
+  static const _primaryColor = Color(0xFF30437A);
+
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   Map<int, double> _dailyTotals = {};
   Map<String, double> _categoryTotals = {};
@@ -65,6 +71,17 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
     }
   }
 
+  Future<void> _pickMonth() async {
+    final picked = await DatePeriodPicker.show(
+      context: context,
+      mode: PeriodPickerMode.month,
+      initialDate: _selectedMonth,
+    );
+    if (picked == null) return;
+    setState(() => _selectedMonth = DateTime(picked.year, picked.month));
+    _loadData();
+  }
+
   bool _isCurrentMonth() {
     final now = DateTime.now();
     return _selectedMonth.year == now.year &&
@@ -78,6 +95,12 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
     if (_dailyTotals.isEmpty) return 100;
     final max = _dailyTotals.values.reduce((a, b) => a > b ? a : b);
     return max == 0 ? 100 : max * 1.3;
+  }
+
+  List<MapEntry<String, double>> get _sortedCategories {
+    final list = _categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return list;
   }
 
   @override
@@ -134,16 +157,37 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
               icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: _previousMonth,
               tooltip: 'Previous Month',
-              color: const Color(0xFF30437A),
+              color: _primaryColor,
             ),
             Expanded(
-              child: Center(
-                child: Text(
-                  DateFormat('MMMM yyyy').format(_selectedMonth),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF30437A),
+              child: GestureDetector(
+                onTap: _pickMonth,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: _primaryColor.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('MMMM yyyy').format(_selectedMonth),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 16,
+                        color: _primaryColor,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -151,9 +195,7 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
             IconButton(
               icon: Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: _isCurrentMonth()
-                    ? Colors.grey[400]
-                    : const Color(0xFF30437A),
+                color: _isCurrentMonth() ? Colors.grey[400] : _primaryColor,
               ),
               onPressed: _isCurrentMonth() ? null : _nextMonth,
               tooltip: 'Next Month',
@@ -173,7 +215,7 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
-            colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
+            colors: [_primaryColor, Color(0xFF4A6FA5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -195,7 +237,7 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '₹${_monthlyTotal.toStringAsFixed(2)}',
+              formatRupees(_monthlyTotal),
               style: const TextStyle(
                 fontSize: 36,
                 color: Colors.white,
@@ -213,8 +255,9 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
     );
   }
 
-  /// Pie chart by category for the current month
+  /// Pie chart by category for the current month (sorted highest → lowest)
   Widget _buildCategoryPieChart(ThemeData theme) {
+    final sorted = _sortedCategories;
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -238,7 +281,7 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
               height: 280,
               child: PieChart(
                 PieChartData(
-                  sections: _categoryTotals.entries.map((entry) {
+                  sections: sorted.map((entry) {
                     final pct = _monthlyTotal > 0
                         ? (entry.value / _monthlyTotal * 100)
                         : 0.0;
@@ -261,40 +304,58 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Legend
-            ..._categoryTotals.entries.map((entry) {
+            // Legend — sorted, tappable
+            ...sorted.map((entry) {
               final color = CategoryColors.getColor(entry.key);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(4),
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CategoryDetailScreen(
+                        category: entry.key,
+                        selectedDate: _selectedMonth,
+                        isMonthly: true,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                    ),
-                    Text(
-                      '₹${entry.value.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF30437A),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          entry.key,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        formatRupees(entry.value),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_ios,
+                          size: 13, color: Colors.grey[400]),
+                    ],
+                  ),
                 ),
               );
             }),
@@ -327,7 +388,12 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            Text(
+              'Tap a bar to see that day\'s expenses',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 16),
             // Scrollable bar chart
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -340,13 +406,33 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
                     minY: 0,
                     barTouchData: BarTouchData(
                       enabled: true,
+                      touchCallback: (FlTouchEvent event, response) {
+                        if (event is FlTapUpEvent &&
+                            response != null &&
+                            response.spot != null) {
+                          final day = response.spot!.touchedBarGroup.x + 1;
+                          final total = _dailyTotals[day] ?? 0;
+                          if (total > 0) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DayExpenseScreen(
+                                  year: _selectedMonth.year,
+                                  month: _selectedMonth.month,
+                                  day: day,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
                       touchTooltipData: BarTouchTooltipData(
                         getTooltipColor: (_) =>
-                            const Color(0xFF30437A).withOpacity(0.85),
+                            _primaryColor.withOpacity(0.85),
                         getTooltipItem: (group, groupIndex, rod, rodIndex) {
                           final day = group.x + 1;
                           return BarTooltipItem(
-                            'Day $day\n₹${rod.toY.toStringAsFixed(0)}',
+                            'Day $day\n${formatRupees(rod.toY, decimalDigits: 0)}',
                             const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -409,8 +495,8 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
                           getTitlesWidget: (value, meta) {
                             if (value == 0) return const SizedBox.shrink();
                             final label = value >= 1000
-                                ? '₹${(value / 1000).toStringAsFixed(0)}k'
-                                : '₹${value.toStringAsFixed(0)}';
+                                ? '₹${formatIndianNumber(value / 1000)}k'
+                                : formatRupees(value, decimalDigits: 0);
                             return Text(
                               label,
                               style: const TextStyle(
@@ -443,7 +529,7 @@ class _MonthlyAnalysisScreenState extends State<MonthlyAnalysisScreen> {
                           BarChartRodData(
                             toY: total,
                             color: total > 0
-                                ? const Color(0xFF30437A)
+                                ? _primaryColor
                                 : Colors.grey.withOpacity(0.1),
                             width: 18,
                             borderRadius: const BorderRadius.vertical(

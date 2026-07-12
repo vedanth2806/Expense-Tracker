@@ -5,9 +5,10 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:intl/intl.dart';
 import '../database_helper.dart';
 import '../models/expense_model.dart';
+import '../utils/currency_formatter.dart';
 
 class ImportScreen extends StatefulWidget {
-  const ImportScreen({Key? key}) : super(key: key);
+  const ImportScreen({super.key});
 
   @override
   State<ImportScreen> createState() => _ImportScreenState();
@@ -115,7 +116,9 @@ class _ImportScreenState extends State<ImportScreen> {
         if (rawDate.isEmpty || rawItem.isEmpty || rawCategory.isEmpty) continue;
         // Skip "TOTAL" and category-summary rows (no date parsable)
         if (rawItem.toUpperCase() == 'TOTAL' ||
-            rawCategory.toUpperCase() == 'TOTAL') continue;
+            rawCategory.toUpperCase() == 'TOTAL') {
+          continue;
+        }
 
         // Parse date
         DateTime? parsedDate;
@@ -357,7 +360,7 @@ class _ImportScreenState extends State<ImportScreen> {
                             style: const TextStyle(fontSize: 11),
                           ),
                           trailing: Text(
-                            '₹${e.cost.toStringAsFixed(2)}',
+                            formatRupees(e.cost),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13),
                           ),

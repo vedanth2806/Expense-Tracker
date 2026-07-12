@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import '../database_helper.dart';
 import '../widgets/sidebar.dart';
+import '../widgets/date_period_picker.dart';
+import '../utils/category_colors.dart';
+import '../utils/currency_formatter.dart';
+import 'category_detail_screen.dart';
+import 'month_expense_screen.dart';
 
 class YearlyAnalysisScreen extends StatefulWidget {
-  const YearlyAnalysisScreen({Key? key}) : super(key: key);
+  const YearlyAnalysisScreen({super.key});
 
   @override
   State<YearlyAnalysisScreen> createState() => _YearlyAnalysisScreenState();
 }
 
 class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
+  static const _primaryColor = Color(0xFF30437A);
+
   int _selectedYear = DateTime.now().year;
   Map<int, double> _monthlyTotals = {};
+  Map<String, double> _categoryTotals = {};
   bool _isLoading = true;
   double _yearlyTotal = 0;
 
@@ -34,8 +41,18 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
   ];
 
   final List<String> _monthShortNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -46,11 +63,17 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final totals = await DatabaseHelper().getMonthlyTotalsForYear(_selectedYear);
+    final totals = await DatabaseHelper().getMonthlyTotalsForYear(
+      _selectedYear,
+    );
+    final catTotals = await DatabaseHelper().getCategoryTotalsForYear(
+      _selectedYear,
+    );
     final yearTotal = totals.values.fold(0.0, (a, b) => a + b);
     if (!mounted) return;
     setState(() {
       _monthlyTotals = totals;
+      _categoryTotals = catTotals;
       _yearlyTotal = yearTotal;
       _isLoading = false;
     });
@@ -68,12 +91,29 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
     }
   }
 
+  Future<void> _pickYear() async {
+    final picked = await DatePeriodPicker.show(
+      context: context,
+      mode: PeriodPickerMode.year,
+      initialDate: DateTime(_selectedYear),
+    );
+    if (picked == null) return;
+    setState(() => _selectedYear = picked.year);
+    _loadData();
+  }
+
   bool _isCurrentYear() => _selectedYear == DateTime.now().year;
 
   double get _maxValue {
     if (_monthlyTotals.isEmpty) return 100;
     final max = _monthlyTotals.values.reduce((a, b) => a > b ? a : b);
     return max == 0 ? 100 : max * 1.3;
+  }
+
+  List<MapEntry<String, double>> get _sortedCategories {
+    final list = _categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return list;
   }
 
   @override
@@ -92,13 +132,15 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                 children: [
                   _buildYearNavigator(theme),
                   const SizedBox(height: 20),
+                  if (_categoryTotals.isNotEmpty) _buildCategoryPieChart(theme),
+                  const SizedBox(height: 20),
                   _buildSummaryCard(theme),
                   const SizedBox(height: 24),
                   _monthlyTotals.isEmpty
                       ? _buildEmptyState()
                       : _buildBarChartCard(theme),
                   const SizedBox(height: 20),
-                  if (_monthlyTotals.isNotEmpty) _buildMonthlyList(theme),
+                  if (_monthlyTotals.isNotEmpty) ...[_buildMonthlyList(theme)],
                 ],
               ),
             ),
@@ -117,16 +159,39 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
               icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: _previousYear,
               tooltip: 'Previous Year',
-              color: const Color(0xFF30437A),
+              color: _primaryColor,
             ),
             Expanded(
-              child: Center(
-                child: Text(
-                  _selectedYear.toString(),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF30437A),
+              child: GestureDetector(
+                onTap: _pickYear,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _primaryColor.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedYear.toString(),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 18,
+                        color: _primaryColor,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -134,7 +199,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
             IconButton(
               icon: Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: _isCurrentYear() ? Colors.grey[400] : const Color(0xFF30437A),
+                color: _isCurrentYear() ? Colors.grey[400] : _primaryColor,
               ),
               onPressed: _isCurrentYear() ? null : _nextYear,
               tooltip: 'Next Year',
@@ -155,7 +220,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
-            colors: [Color(0xFF30437A), Color(0xFF4A6FA5)],
+            colors: [_primaryColor, Color(0xFF4A6FA5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -177,7 +242,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '₹${_yearlyTotal.toStringAsFixed(2)}',
+              formatRupees(_yearlyTotal),
               style: const TextStyle(
                 fontSize: 36,
                 color: Colors.white,
@@ -211,7 +276,12 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                 Text('Monthly Breakdown', style: theme.textTheme.titleMedium),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 6),
+            Text(
+              'Tap a bar to see that month\'s expenses',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 20),
             SizedBox(
               height: 300,
               child: BarChart(
@@ -220,12 +290,30 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                   minY: 0,
                   barTouchData: BarTouchData(
                     enabled: true,
+                    touchCallback: (FlTouchEvent event, response) {
+                      if (event is FlTapUpEvent &&
+                          response != null &&
+                          response.spot != null) {
+                        final month = response.spot!.touchedBarGroup.x + 1;
+                        final total = _monthlyTotals[month] ?? 0;
+                        if (total > 0) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MonthExpenseScreen(
+                                year: _selectedYear,
+                                month: month,
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
                     touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) =>
-                          const Color(0xFF30437A).withOpacity(0.85),
+                      getTooltipColor: (_) => _primaryColor.withOpacity(0.85),
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
                         return BarTooltipItem(
-                          '${_monthShortNames[group.x]}\n₹${rod.toY.toStringAsFixed(0)}',
+                          '${_monthShortNames[group.x]}\n${formatRupees(rod.toY, decimalDigits: 0)}',
                           const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -249,8 +337,8 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
                               total >= 1000
-                                  ? '${(total / 1000).toStringAsFixed(1)}k'
-                                  : total.toStringAsFixed(0),
+                                  ? '${formatIndianNumber(total / 1000, decimalDigits: 1)}k'
+                                  : formatIndianNumber(total),
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
@@ -291,8 +379,8 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
                         getTitlesWidget: (value, meta) {
                           if (value == 0) return const SizedBox.shrink();
                           final label = value >= 1000
-                              ? '₹${(value / 1000).toStringAsFixed(0)}k'
-                              : '₹${value.toStringAsFixed(0)}';
+                              ? '₹${formatIndianNumber(value / 1000)}k'
+                              : formatRupees(value, decimalDigits: 0);
                           return Text(
                             label,
                             style: const TextStyle(
@@ -366,62 +454,195 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
               final month = i + 1;
               final total = _monthlyTotals[month] ?? 0;
               final pct = _yearlyTotal > 0 ? total / _yearlyTotal : 0.0;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: total > 0
-                            ? _barColors[i]
-                            : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 36,
-                      child: Text(
-                        _monthShortNames[i],
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: total > 0 ? null : Colors.grey[400],
+              return InkWell(
+                onTap: total > 0
+                    ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MonthExpenseScreen(
+                              year: _selectedYear,
+                              month: month,
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: total > 0 ? _barColors[i] : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: pct.toDouble(),
-                          minHeight: 6,
-                          backgroundColor: Colors.grey.withOpacity(0.12),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            total > 0
-                                ? _barColors[i]
-                                : Colors.transparent,
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 36,
+                        child: Text(
+                          _monthShortNames[i],
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: total > 0 ? null : Colors.grey[400],
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 80,
-                      child: Text(
-                        total > 0 ? '₹${total.toStringAsFixed(0)}' : '—',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: total > 0
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                          color: total > 0 ? null : Colors.grey[400],
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pct.toDouble(),
+                            minHeight: 6,
+                            backgroundColor: Colors.grey.withOpacity(0.12),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              total > 0 ? _barColors[i] : Colors.transparent,
+                            ),
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 80,
+                        child: Text(
+                          total > 0
+                              ? formatRupees(total, decimalDigits: 0)
+                              : '—',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: total > 0
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: total > 0 ? null : Colors.grey[400],
+                          ),
+                        ),
+                      ),
+                      if (total > 0) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 12,
+                          color: Colors.grey[400],
+                        ),
+                      ] else
+                        const SizedBox(width: 20),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Yearly category pie chart (sorted highest → lowest), tappable legend
+  Widget _buildCategoryPieChart(ThemeData theme) {
+    final sorted = _sortedCategories;
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.pie_chart_rounded, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Category Breakdown', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 280,
+              child: PieChart(
+                PieChartData(
+                  sections: sorted.map((entry) {
+                    final pct = _yearlyTotal > 0
+                        ? (entry.value / _yearlyTotal * 100)
+                        : 0.0;
+                    return PieChartSectionData(
+                      color: CategoryColors.getColor(entry.key),
+                      value: entry.value,
+                      title: '${pct.toStringAsFixed(1)}%',
+                      radius: 100,
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    );
+                  }).toList(),
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 55,
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Tappable legend (sorted)
+            ...sorted.map((entry) {
+              final color = CategoryColors.getColor(entry.key);
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CategoryDetailScreen(
+                        category: entry.key,
+                        selectedDate: DateTime(_selectedYear),
+                        isYearly: true,
+                      ),
                     ),
-                  ],
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          entry.key,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        formatRupees(entry.value),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 13,
+                        color: Colors.grey[400],
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),

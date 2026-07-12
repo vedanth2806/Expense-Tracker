@@ -1,6 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-        <!-- ✅ Camera permission -->
+    <!-- Camera permission -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Internet — required for in_app_update (Play Store checks) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Storage — for backup Excel to Downloads folder -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Android 13+ granular media permissions -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     
 
 

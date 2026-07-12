@@ -5,7 +5,7 @@ import '../models/expense_model.dart';
 import '../utils/category_colors.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({Key? key}) : super(key: key);
+  const AddExpenseScreen({super.key});
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -132,7 +132,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               // Category Dropdown with colored indicators
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Category',
                   prefixIcon: Padding(

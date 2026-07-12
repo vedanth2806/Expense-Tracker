@@ -58,7 +58,7 @@ class DatabaseHelper {
 
   // Get expenses grouped by category with totals
   Future<Map<String, double>> getCategoryTotals() async {
-    final expenses = await _expenses;
+    final expenses = _expenses;
     Map<String, double> categoryTotals = {};
 
     for (var expense in expenses) {
@@ -214,5 +214,32 @@ class DatabaseHelper {
       final expenseDate = DateTime.parse(expense.date);
       return expenseDate.year == year && expenseDate.month == month;
     }).toList()..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  // Get category totals for an entire year (for yearly pie chart)
+  Future<Map<String, double>> getCategoryTotalsForYear(int year) async {
+    final allExpenses = await getExpenses();
+    final Map<String, double> categoryTotals = {};
+    for (var expense in allExpenses) {
+      final expenseDate = DateTime.parse(expense.date);
+      if (expenseDate.year == year) {
+        categoryTotals[expense.category] =
+            (categoryTotals[expense.category] ?? 0) + expense.cost;
+      }
+    }
+    return categoryTotals;
+  }
+
+  // Get all expenses for a specific category within a year
+  Future<List<Expense>> getExpensesByCategoryAndYear(
+    String category,
+    int year,
+  ) async {
+    final allExpenses = await getExpenses();
+    return allExpenses.where((e) {
+      final d = DateTime.parse(e.date);
+      return d.year == year && e.category == category;
+    }).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
   }
 }

@@ -7,19 +7,21 @@ import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../database_helper.dart';
+import '../services/backup_service.dart';
 import '../widgets/sidebar.dart';
+import '../widgets/date_period_picker.dart';
 import '../utils/category_colors.dart';
 import 'category_detail_screen.dart';
-import '../widgets/sidebar.dart';
+import '../utils/currency_formatter.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // ── Daily state ──────────────────────────────────────────────────────────
   Map<String, double> _categoryTotals = {};
   bool _isDailyLoading = true;
@@ -38,7 +40,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAllData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Auto-backup when app goes to background or is closed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      BackupService.silentExportToDownloads();
+    }
   }
 
   // Called once on init and on manual refresh
@@ -330,50 +348,50 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMonthlyTotalCard(ThemeData theme) {
     return Row(
       children: [
-        // ✅ Use IconButton instead of DrawerTile
-        // Material(
-        //   color: Color(0xFF30437A),
-        //   child: InkWell(
-        //     borderRadius: BorderRadius.circular(16),
-        //     onTap: () {
-        //       // ✅ Navigate WITHOUT popping drawer context
-        //       Navigator.push(
-        //         context,
-        //         MaterialPageRoute(
-        //           builder: (context) => const UpiScannerScreen(),
-        //         ),
-        //       );
-        //     },
-        //     child: Container(
-        //       padding: const EdgeInsets.all(16),
-        //       decoration: BoxDecoration(
-        //         color: Colors.white.withOpacity(0.1),
-        //         borderRadius: BorderRadius.circular(16),
-        //       ),
-        //       child: Column(
-        //         mainAxisSize: MainAxisSize.min,
-        //         children: [
-        //           Icon(
-        //             Icons.qr_code_scanner_rounded,
-        //             color: Colors.white,
-        //             size: 28,
-        //           ),
-        //           const SizedBox(height: 4),
-        //           const Text(
-        //             'Scan QR',
-        //             style: TextStyle(
-        //               fontSize: 12,
-        //               color: Colors.white70,
-        //               fontWeight: FontWeight.w500,
-        //             ),
-        //           ),
-        //         ],
-        //       ),
-        //     ),
-        //   ),
-        // ),
+        // ✅ UPI Scanner
+        Material(
+          color: Color(0xFF30437A),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              // ✅ Navigate WITHOUT popping drawer context
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UpiScannerScreen(),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Scan QR',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
 
-        // const SizedBox(width: 16), // ✅ Spacing
+        const SizedBox(width: 16), // ✅ Spacing
         // Your existing card
         Expanded(
           child: Card(
@@ -408,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '₹${_monthlyTotal.toStringAsFixed(2)}',
+                    formatRupees(_monthlyTotal),
                     style: const TextStyle(
                       fontSize: 36,
                       color: Colors.white,
@@ -510,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '₹${_totalExpenses.toStringAsFixed(2)}',
+                  formatRupees(_totalExpenses),
                   style: const TextStyle(
                     fontSize: 40,
                     color: Colors.white,
@@ -553,6 +571,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _pickDate() async {
+    final picked = await DatePeriodPicker.show(
+      context: context,
+      mode: PeriodPickerMode.day,
+      initialDate: _selectedDate,
+    );
+    if (picked == null) return;
+    final monthChanged =
+        picked.month != _selectedDate.month ||
+        picked.year != _selectedDate.year;
+    setState(() => _selectedDate = picked);
+    _loadDailyData();
+    if (monthChanged) _loadMonthlyData();
+  }
+
   Widget _buildDateNavigator(ThemeData theme) {
     return Card(
       elevation: 2,
@@ -569,13 +602,33 @@ class _HomeScreenState extends State<HomeScreen> {
               color: const Color(0xFF30437A),
             ),
             Expanded(
-              child: Center(
-                child: Text(
-                  DateFormat('dd MMM yyyy').format(_selectedDate),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF30437A),
+              child: GestureDetector(
+                onTap: _pickDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF30437A).withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('dd MMM yyyy').format(_selectedDate),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF30437A),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 16,
+                        color: Color(0xFF30437A),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -650,7 +703,9 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, double> categoryTotals, {
     required bool isMonthly,
   }) {
-    final items = categoryTotals.entries.map((entry) {
+    final sortedList = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final items = sortedList.map((entry) {
       final color = CategoryColors.getColor(entry.key);
       return InkWell(
         onTap: () {
@@ -689,7 +744,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               Text(
-                '₹${entry.value.toStringAsFixed(2)}',
+                formatRupees(entry.value),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
